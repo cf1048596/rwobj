@@ -706,7 +706,68 @@ fn disassemble(insn_address : u32, instruction : u32) -> () {
 
 
 
-fn disassemble_view(insn_address : u32, instruction : u32, label_name : &str) -> () {
+fn disassemble_view(insn_address : u32, instruction : u32, label_name : Option<&str>) -> () {
+    let opcode : u32 = (instruction >> 28) & 0xf;
+    let func : u32 = (instruction >> 16) & 0xf;
+    let rd : u32 = (instruction >> 24) & 0xf;
+    let rs : u32 = (instruction >> 20) & 0xf;
+    let rt : u32 = (instruction & 0xf);
+    let address : u32 = instruction & 0xfffff;
+    let immediate : u32 = instruction & 0xffff;
+    let signed_address :i32 = if (address & 0x80000) != 0 {
+        (0xfff00000 | address).try_into().unwrap()
+    } else {
+        address.try_into().unwrap()
+    };
+    let insn_vec = INSN_TABLE.to_vec();
+    let gpr_vec = GPR_NAME.to_vec();
+    let spr_vec = SPR_NAME.to_vec();
 
-
+    if let Some(insn_idx) = insn_vec.iter().position(|insn| {
+        insn.mnemonic.is_some() && 
+        insn.opcode == opcode && 
+        (insn.type_descriptor == InsnDescriptor::JType || insn.func == func)
+    }) {
+        print!("Found a match at insn_idx: {}", insn_idx);
+        let result = format!(":\t{}", INSN_TABLE[insn_idx].mnemonic.expect("real string (real)"));
+        print!("{}", result);
+        for ch  in INSN_TABLE[insn_idx].operands.unwrap().chars() {
+            match ch {
+                'd' => {
+                    print!("{}", gpr_vec.get(rd as usize).unwrap())
+                }
+                's' => {
+                    print!("{}", gpr_vec.get(rs as usize).unwrap())
+                }
+                'D' => {
+                    print!("{}", spr_vec.get(rd as usize).unwrap())
+                }
+                'S' => {
+                    print!("{}", spr_vec.get(rs as usize).unwrap())
+                }
+                't' => {
+                    print!("{}", gpr_vec.get(rt as usize).unwrap())
+                }
+                'i' => {
+                    print!("0x{:04x}", immediate);
+                }
+                'j' | 'o' | 'b' => {
+                    match label_name {
+                        Some(name) => {
+                            print!("{}", name);
+                        }
+                        None => {
+                            let formatted = format!("0x{:05X}", address);
+                            println!("{}", formatted);
+                        }
+                    }
+                }
+                _ => {
+                    print!("{}", ch);
+                }
+            }
+        }
+    } else {
+        println!("No match found.");
+    }
 }
