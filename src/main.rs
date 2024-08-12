@@ -10,9 +10,9 @@ use std::io::prelude::*;
 use std::io::Read;
 
 pub const SEG_TYPE_NAME: [&str; 5] = ["NONE", "TEXT", "DATA", "BSS", "NUM_SEGMENTS"];
-pub const TEXT : usize = 1;
-pub const DATA : usize = 2;
-pub const BSS : usize = 3;
+pub const TEXT: usize = 1;
+pub const DATA: usize = 2;
+pub const BSS: usize = 3;
 
 #[derive(Clone, Copy, Debug)]
 pub struct ObjectHeader {
@@ -82,21 +82,13 @@ pub struct Reference<'a> {
 pub struct FileType<'a> {
     filename: &'a str,
     file_header: ObjectHeader,
-    //holds starting addresses of each segment
-    segment: Vec<Vec<&'a u32>>,
+    // holds starting addresses of each segment
+    segment: Vec<Vec<u32>>,
     segment_address: Vec<u32>,
     reference: Option<&'a mut Reference<'a>>,
+    label_entries: Vec<LabelEntry<'a>>,
+    reloc_entries: Vec<RelocEntry>,
 }
-
-//label_entry *get_label(char *name);
-//return pointer to label_entry struct
-//creates new entry if no entry is found
-//just use a vec anyway
-
-//label_entry *get_label_address(int address, reference_type type)
-//searches for a reference to a label
-//create new entry if no entry is found
-//just use a vec anyway
 
 pub const MAGIC_NUMBER: u32 = 0xdaa1;
 
@@ -122,6 +114,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let file_name = matches.get_one::<String>("file").expect("File is required");
     let disassemble = *matches.get_one::<bool>("disassemble").unwrap_or(&false);
+    let mut text_size = 0;
+    let mut data_size = 0;
+    let mut bss_size = 0;
 
     // Check if the file exists
     if fs::metadata(file_name).is_ok() {
@@ -131,33 +126,75 @@ fn main() -> Result<(), Box<dyn Error>> {
         let header = ObjectHeader::from_reader(&mut reader)?;
         println!("{:#?}", header);
         if header.magic_number == MAGIC_NUMBER {
-            println!("magic number is correct");
+            println!("Magic number is correct");
             let mut file_type: FileType = FileType {
-                filename: &file_name,
+                filename: file_name,
                 file_header: header,
-                segment : {
-                let mut segment_vec = Vec::new();
-                    //text
+                segment: {
+                    let mut segment_vec = Vec::new();
+                    // text
                     segment_vec.push(Vec::with_capacity(header.text_seg_size as usize));
-                    //data
+                    // data
                     segment_vec.push(Vec::with_capacity(header.data_seg_size as usize));
+                    // bss
+                    segment_vec.push(Vec::with_capacity(header.bss_seg_size as usize));
                     segment_vec
                 },
-                segment_address : {
-                let mut segment_address_vec = Vec::new();
-                    //text
+                segment_address: {
+                    let mut segment_address_vec = Vec::new();
+                    // text
                     segment_address_vec.push(0);
-                    //data
-                    segment_address_vec.push(0);
-                    //bss
-                    segment_address_vec.push(0);
+                    // data
+                    segment_address_vec.push(header.text_seg_size as u32);
+                    // bss
+                    segment_address_vec.push( header.text_seg_size as u32 + header.data_seg_size as u32,
+                    );
                     segment_address_vec
                 },
-                reference : None
+                reference: None,
+                label_entries: Vec::new(),
+                reloc_entries: Vec::new(),
             };
+
+            // Read the text segment
+            reader.seek(io::SeekFrom::Start(24))?;
+            for i in 0..header.text_seg_size {
+                let value = reader.read_u32::<LittleEndian>()?;
+                file_type.segment[TEXT].push(value);
+                println!("text seg found {}", value);
+            }
+            println!("text vec segment size {}", file_type.segment[TEXT].len());
+
+
+            // Read the data segment
+            reader.seek(io::SeekFrom::Start(24 + header.text_seg_size as u64))?;
+            for i in 0..header.data_seg_size {
+                let value = reader.read_u32::<LittleEndian>()?;
+                file_type.segment[DATA].push(value);
+                println!("data seg found {}", value);
+            }
+            println!("data vec segment size {}", file_type.segment[DATA].len());
+
+            //Increment the size counters
+            text_size += header.text_seg_size;
+            data_size += header.data_seg_size;
+            bss_size += header.bss_seg_size;
+
+            let num_reloc_entries = header.num_references;
+            reader.seek(io::SeekFrom::Start(24 + header.text_seg_size as u64 + header.data_seg_size as u64))?;
+            for i in 0..num_reloc_entries {
+                let value = reader.read_u32::<LittleEndian>()?;
+                file_type.reloc_entries.push(
+                    RelocEntry {
+
+                    }
+                );
+                println!("data seg found {}", value);
+            }
+
             if disassemble {}
         } else {
-            println!("magic number is not correct");
+            println!("Magic number is not correct");
         }
     } else {
         eprintln!("Error: File '{}' does not exist.", file_name);
