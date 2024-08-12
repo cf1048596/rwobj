@@ -16,19 +16,17 @@ pub struct InsnType<'a> {
     type_descriptor: InsnDescriptor,
 }
 
-pub const GPR_NAME : [&str ; 16] = [
-	"$0", "$1", "$2", "$3",
-	"$4", "$5", "$6", "$7",
-	"$8", "$9", "$10", "$11",
-	"$12", "$13", "$sp", "$ra"];
+pub const GPR_NAME: [&str; 16] = [
+    "$0", "$1", "$2", "$3", "$4", "$5", "$6", "$7", "$8", "$9", "$10", "$11", "$12", "$13", "$sp",
+    "$ra",
+];
 
-pub const SPR_NAME : [&str; 16]= [
-	"$spr0", "$spr1", "$spr2", "$spr3",
-	"$cctrl", "$estat", "$icount", "$ccount",
-	"$evec", "$ear", "$esp", "$ers",
-	"$ptable", "$rbase", "$spr14", "$spr15"];
+pub const SPR_NAME: [&str; 16] = [
+    "$spr0", "$spr1", "$spr2", "$spr3", "$cctrl", "$estat", "$icount", "$ccount", "$evec", "$ear",
+    "$esp", "$ers", "$ptable", "$rbase", "$spr14", "$spr15",
+];
 
-pub const INSN_TABLE : [InsnType;84] = [
+pub const INSN_TABLE: [InsnType; 84] = [
     InsnType {
         mnemonic: Some("add"),
         operands: Some("d,s,t"),
@@ -623,15 +621,15 @@ pub const INSN_TABLE : [InsnType;84] = [
         type_descriptor: InsnDescriptor::DIRECTIVE,
     },
 ];
-fn disassemble(insn_address : u32, instruction : u32) -> () {
-    let opcode : u32 = (instruction >> 28) & 0xf;
-    let func : u32 = (instruction >> 16) & 0xf;
-    let rd : u32 = (instruction >> 24) & 0xf;
-    let rs : u32 = (instruction >> 20) & 0xf;
-    let rt : u32 = (instruction & 0xf);
-    let address : u32 = instruction & 0xfffff;
-    let immediate : u32 = instruction & 0xffff;
-    let signed_address :i32 = if (address & 0x80000) != 0 {
+fn disassemble(insn_address: u32, instruction: u32) -> () {
+    let opcode: u32 = (instruction >> 28) & 0xf;
+    let func: u32 = (instruction >> 16) & 0xf;
+    let rd: u32 = (instruction >> 24) & 0xf;
+    let rs: u32 = (instruction >> 20) & 0xf;
+    let rt: u32 = (instruction & 0xf);
+    let address: u32 = instruction & 0xfffff;
+    let immediate: u32 = instruction & 0xffff;
+    let signed_address: i32 = if (address & 0x80000) != 0 {
         (0xfff00000 | address).try_into().unwrap()
     } else {
         address.try_into().unwrap()
@@ -641,14 +639,17 @@ fn disassemble(insn_address : u32, instruction : u32) -> () {
     let spr_vec = SPR_NAME.to_vec();
 
     if let Some(insn_idx) = insn_vec.iter().position(|insn| {
-        insn.mnemonic.is_some() && 
-        insn.opcode == opcode && 
-        (insn.type_descriptor == InsnDescriptor::JType || insn.func == func)
+        insn.mnemonic.is_some()
+            && insn.opcode == opcode
+            && (insn.type_descriptor == InsnDescriptor::JType || insn.func == func)
     }) {
         print!("Found a match at insn_idx: {}", insn_idx);
-        let result = format!(":\t{}", INSN_TABLE[insn_idx].mnemonic.expect("real string (real)"));
+        let result = format!(
+            ":\t{}",
+            INSN_TABLE[insn_idx].mnemonic.expect("real string (real)")
+        );
         print!("{}", result);
-        for ch  in INSN_TABLE[insn_idx].operands.unwrap().chars() {
+        for ch in INSN_TABLE[insn_idx].operands.unwrap().chars() {
             match ch {
                 'd' => {
                     print!("{}", gpr_vec.get(rd as usize).unwrap())
@@ -666,55 +667,48 @@ fn disassemble(insn_address : u32, instruction : u32) -> () {
                 't' => {
                     print!("{}", gpr_vec.get(rt as usize).unwrap())
                 }
-                'o' => {
-                    match address {
-                        0 => print!("{}", 0),
-                        _ => {
-                            if rs!=0 {
-                                print!("{}", signed_address);
-                            } else {
-                                let formatted = format!("0x{:05X}", address);
-                                println!("{}", formatted);
-                            }
+                'o' => match address {
+                    0 => print!("{}", 0),
+                    _ => {
+                        if rs != 0 {
+                            print!("{}", signed_address);
+                        } else {
+                            let formatted = format!("0x{:05X}", address);
+                            println!("{}", formatted);
                         }
                     }
-                }
+                },
                 'b' => {
-                    let address_i_think = (((insn_address as i32 + signed_address) & 0xfffff) + 1) as u32;
+                    let address_i_think =
+                        (((insn_address as i32 + signed_address) & 0xfffff) + 1) as u32;
                     let formatted = format!("0x{:05X}", address_i_think);
                     println!("{}", formatted);
                 }
                 'i' => {
                     print!("0x{:04x}", immediate);
-
                 }
                 'j' => {
-
                     print!("0x{:05}", address);
                 }
                 _ => {
                     print!("{}", ch);
-
                 }
             }
         }
-
     } else {
         println!("No match found.");
     }
 }
 
-
-
-fn disassemble_view(insn_address : u32, instruction : u32, label_name : Option<&str>) -> () {
-    let opcode : u32 = (instruction >> 28) & 0xf;
-    let func : u32 = (instruction >> 16) & 0xf;
-    let rd : u32 = (instruction >> 24) & 0xf;
-    let rs : u32 = (instruction >> 20) & 0xf;
-    let rt : u32 = (instruction & 0xf);
-    let address : u32 = instruction & 0xfffff;
-    let immediate : u32 = instruction & 0xffff;
-    let signed_address :i32 = if (address & 0x80000) != 0 {
+fn disassemble_view(insn_address: u32, instruction: u32, label_name: Option<&str>) -> () {
+    let opcode: u32 = (instruction >> 28) & 0xf;
+    let func: u32 = (instruction >> 16) & 0xf;
+    let rd: u32 = (instruction >> 24) & 0xf;
+    let rs: u32 = (instruction >> 20) & 0xf;
+    let rt: u32 = (instruction & 0xf);
+    let address: u32 = instruction & 0xfffff;
+    let immediate: u32 = instruction & 0xffff;
+    let signed_address: i32 = if (address & 0x80000) != 0 {
         (0xfff00000 | address).try_into().unwrap()
     } else {
         address.try_into().unwrap()
@@ -724,14 +718,17 @@ fn disassemble_view(insn_address : u32, instruction : u32, label_name : Option<&
     let spr_vec = SPR_NAME.to_vec();
 
     if let Some(insn_idx) = insn_vec.iter().position(|insn| {
-        insn.mnemonic.is_some() && 
-        insn.opcode == opcode && 
-        (insn.type_descriptor == InsnDescriptor::JType || insn.func == func)
+        insn.mnemonic.is_some()
+            && insn.opcode == opcode
+            && (insn.type_descriptor == InsnDescriptor::JType || insn.func == func)
     }) {
         print!("Found a match at insn_idx: {}", insn_idx);
-        let result = format!(":\t{}", INSN_TABLE[insn_idx].mnemonic.expect("real string (real)"));
+        let result = format!(
+            ":\t{}",
+            INSN_TABLE[insn_idx].mnemonic.expect("real string (real)")
+        );
         print!("{}", result);
-        for ch  in INSN_TABLE[insn_idx].operands.unwrap().chars() {
+        for ch in INSN_TABLE[insn_idx].operands.unwrap().chars() {
             match ch {
                 'd' => {
                     print!("{}", gpr_vec.get(rd as usize).unwrap())
@@ -751,17 +748,15 @@ fn disassemble_view(insn_address : u32, instruction : u32, label_name : Option<&
                 'i' => {
                     print!("0x{:04x}", immediate);
                 }
-                'j' | 'o' | 'b' => {
-                    match label_name {
-                        Some(name) => {
-                            print!("{}", name);
-                        }
-                        None => {
-                            let formatted = format!("0x{:05X}", address);
-                            println!("{}", formatted);
-                        }
+                'j' | 'o' | 'b' => match label_name {
+                    Some(name) => {
+                        print!("{}", name);
                     }
-                }
+                    None => {
+                        let formatted = format!("0x{:05X}", address);
+                        println!("{}", formatted);
+                    }
+                },
                 _ => {
                     print!("{}", ch);
                 }
