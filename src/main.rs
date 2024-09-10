@@ -183,13 +183,22 @@ fn main() -> Result<(), Box<dyn Error>> {
             let num_reloc_entries = header.num_references;
             reader.seek(io::SeekFrom::Start(24 + header.text_seg_size as u64 + header.data_seg_size as u64))?;
             for i in 0..num_reloc_entries {
-                let value = reader.read_u32::<LittleEndian>()?;
+                let read_address = reader.read_u32::<LittleEndian>()?;
+                let sym_ptr = reader.read_u32::<LittleEndian>()?;
+                let read_ref_type = reader.read_u8::<LittleEndian>()?;
+                let sym_ptr = reader.read_u8::<LittleEndian>()?;
                 file_type.reloc_entries.push(
                     RelocEntry {
+                        address : read_address,
+                        symbol_ptr : sym_ptr,
+                        ref_type : let  match {
+
+                        }
 
                     }
                 );
                 println!("data seg found {}", value);
+                */
             }
 
             if disassemble {}
